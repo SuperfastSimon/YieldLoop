@@ -1,0 +1,7 @@
+{
+  "expected": {
+    "strategyMemo": 1,
+    "draftArtefacts": ">=1",
+    "unauthorizedPublishes": 0
+  }
+}
