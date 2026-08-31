@@ -6,6 +6,12 @@ Affiliate-besturingssysteem. Stations zijn cellen die zichzelf klonen onder hard
 
 Repo: [github.com/SuperfastSimon/YieldLoop](https://github.com/SuperfastSimon/YieldLoop)
 
+## Status
+
+Publieke kernel + dashboard-preview in deze repo. **Geen live productie-URL.** GitHub Pages staat uit. Er is geen hosted SaaS.
+
+Live-badge in de UI is alleen geldig mét `PublishRecord`. Zonder ApprovalToken is een clone een proposal, nooit een silent station.
+
 ## Voor een nieuw Grok-gesprek
 
 1. Open Grok Build.
@@ -25,7 +31,7 @@ Volledige bron-dump (één markdown): `attachments/YIELDLOOP_OVERDRACHT.md`.
 | `src/lib/yieldloop/store.ts` | Zustand persist `yieldloop-v1` |
 | `src/lib/yieldloop/engine.test.ts` | 21 pinning tests |
 
-Kind van een clone is altijd `T1_DRAFT`. Zonder ApprovalToken = proposal, nooit silent station. Live-badge alleen mét `PublishRecord`.
+Kind van een clone is altijd `T1_DRAFT`.
 
 ## Design
 
@@ -37,6 +43,14 @@ Ink `#090c0b` · teal `#3d9a86` · ivory `#e6eee9`. Instrument Sans + IBM Plex M
 node --experimental-strip-types --test src/lib/yieldloop/engine.test.ts
 ```
 
+## Legal
+
+- Gebruiksvoorwaarden: [`TERMS.md`](TERMS.md)
+- Compliance-gates: [`docs/COMPLIANCE.md`](docs/COMPLIANCE.md)
+- Geen privacyverklaring: deze repo verzamelt geen accounts, formulieren of analytics. Persist is lokaal (`yieldloop-v1`).
+
+`TERMS.md` is een starttemplate, geen juridisch advies. Identiteit (bedrijfsnaam, KvK, adres) is bewust leeg gelaten.
+
 ## License
 
-Privé-demo tenzij anders afgesproken.
+Bron is zichtbaar omdat deze repo public is. Dat is **geen** open-source-licentie. Gebruik, kopiëren of herpubliceren alleen met toestemming van de eigenaar. Zie `TERMS.md`.
