@@ -1,6 +1,7 @@
 import { Link, useRouterState } from "@tanstack/react-router";
 import {
   BookOpen,
+  Coins,
   FileText,
   GitBranch,
   LayoutDashboard,
@@ -17,40 +18,98 @@ import { RunBadge } from "@/components/yieldloop/status";
 import { Switch } from "@/components/ui/switch";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
 import { useYieldStore } from "@/lib/yieldloop/store";
+import { partnerReady } from "@/lib/yieldloop/links.ts";
 import { eur } from "@/lib/utils";
 import { cn } from "@/lib/utils";
 
 const NAV = [
   { to: "/", label: "Commando", icon: LayoutDashboard },
   { to: "/stations", label: "Stations", icon: GitBranch },
-  { to: "/loop", label: "Loop", icon: Workflow },
+  { to: "/verdienen", label: "Verdienen", icon: Coins },
   { to: "/content", label: "Content", icon: Radio },
+  { to: "/loop", label: "Loop", icon: Workflow },
   { to: "/compliance", label: "Compliance", icon: Shield },
   { to: "/learn", label: "Skills", icon: BookOpen },
   { to: "/ledger", label: "Ledger", icon: Wallet },
   { to: "/overdracht", label: "Overdracht", icon: FileText },
 ] as const;
 
-const MEER_PATHS = ["/compliance", "/learn", "/ledger", "/overdracht"];
+const MEER_PATHS = ["/loop", "/compliance", "/learn", "/ledger", "/overdracht"];
+
+function isPublicPath(pathname: string): boolean {
+  return (
+    pathname.startsWith("/p/") ||
+    pathname.startsWith("/go/") ||
+    pathname === "/voorwaarden" ||
+    pathname === "/privacy"
+  );
+}
+
+function LegalLinks({ className }: { className?: string }) {
+  return (
+    <nav className={cn("flex flex-wrap gap-4 text-xs text-muted", className)}>
+      <Link to="/voorwaarden" className="hover:text-fg">
+        Voorwaarden
+      </Link>
+      <Link to="/privacy" className="hover:text-fg">
+        Privacy
+      </Link>
+    </nav>
+  );
+}
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const runState = useYieldStore((s) => s.runState);
   const budget = useYieldStore((s) => s.budget);
+  const partner = useYieldStore((s) => s.partner);
   const applyKill = useYieldStore((s) => s.applyKill);
   const markHydrated = useYieldStore((s) => s.markHydrated);
   const [more, setMore] = useState(false);
+  const ready = partnerReady(partner);
+  const publicChrome = isPublicPath(pathname);
 
   useEffect(() => {
     const result = useYieldStore.persist.rehydrate();
     void Promise.resolve(result).then(() => markHydrated());
   }, [markHydrated]);
 
+  if (publicChrome) {
+    return (
+      <div className="min-h-dvh bg-bg text-fg">
+        <Toaster
+          theme="dark"
+          position="top-right"
+          toastOptions={{
+            className: "bg-surface text-fg shadow-[var(--shadow-border)]",
+          }}
+        />
+        <header className="flex items-center justify-between border-b border-border px-5 py-4">
+          <Link to="/" className="flex items-center gap-2">
+            <Mark className="size-6" />
+            <span className="text-sm font-medium">YieldLoop</span>
+          </Link>
+          <Link to="/" className="text-xs text-muted hover:text-fg">
+            Commando
+          </Link>
+        </header>
+        <main className="min-h-[70dvh]">{children}</main>
+        <footer className="border-t border-border px-5 py-6">
+          <p className="text-xs leading-relaxed text-muted">
+            Affiliate-links: bij aankoop via deze links kan de operator een commissie ontvangen. Dat
+            kost jou niets extra. YieldLoop zelf keert geen geld uit.
+          </p>
+          <LegalLinks className="mt-3" />
+        </footer>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-dvh bg-bg text-fg">
       <Toaster
         theme="dark"
-        position="bottom-right"
+        position="top-right"
         toastOptions={{
           className: "bg-surface text-fg shadow-[var(--shadow-border)]",
         }}
@@ -63,10 +122,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             <p className="text-xs text-muted">Affiliate OS</p>
           </div>
         </div>
-        <nav className="flex flex-1 flex-col gap-0.5 px-3">
+        <nav className="flex flex-1 flex-col gap-0.5 overflow-y-auto px-3">
           {NAV.map((item) => {
             const active = item.to === "/" ? pathname === "/" : pathname.startsWith(item.to);
             const Icon = item.icon;
+            const warn = item.to === "/verdienen" && !ready;
             return (
               <Link
                 key={item.to}
@@ -78,6 +138,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               >
                 <Icon className="size-4" />
                 {item.label}
+                {warn ? <span className="ml-auto size-1.5 rounded-full bg-warn" /> : null}
               </Link>
             );
           })}
@@ -97,6 +158,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           <p className="mt-3 font-mono text-xs tabular-nums text-muted">
             Budget {eur(budget.spentEur)} / {eur(budget.capEur)}
           </p>
+          <LegalLinks className="mt-3" />
         </div>
       </aside>
 
@@ -167,6 +229,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             </div>
             <Switch checked={runState === "RUN"} onCheckedChange={(on) => applyKill(!on)} aria-label="Kill-switch" />
           </div>
+          <LegalLinks className="mt-4" />
         </SheetContent>
       </Sheet>
     </div>

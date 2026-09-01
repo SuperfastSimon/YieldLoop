@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState } from "react";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/layout/AppShell";
@@ -7,6 +7,7 @@ import { StateBadge } from "@/components/yieldloop/status";
 import { useYieldStore } from "@/lib/yieldloop/store";
 import { ARTEFACT_STATES, type ArtefactState } from "@/lib/yieldloop/contracts";
 import { isLive } from "@/lib/yieldloop/compliance";
+import { partnerReady } from "@/lib/yieldloop/links.ts";
 import { STATE_NL } from "@/components/yieldloop/status";
 
 export const Route = createFileRoute("/content")({ component: ContentPage });
@@ -16,25 +17,29 @@ function ContentPage() {
   const publishes = useYieldStore((s) => s.publishes);
   const stations = useYieldStore((s) => s.stations);
   const tokens = useYieldStore((s) => s.tokens);
+  const partner = useYieldStore((s) => s.partner);
   const applyPublish = useYieldStore((s) => s.applyPublish);
   const applyRollback = useYieldStore((s) => s.applyRollback);
+  const applyGoLive = useYieldStore((s) => s.applyGoLive);
   const [openId, setOpenId] = useState<string | null>(artefacts[0]?.id ?? null);
   const [filter, setFilter] = useState<ArtefactState | "ALL" | "LIVE">("ALL");
+  const ready = partnerReady(partner);
 
   const visible = artefacts.filter((a) => {
     if (filter === "ALL") return true;
     if (filter === "LIVE") return isLive(a, publishes);
-    return a.state === filter && !(filter === "PUBLISHED" && !isLive(a, publishes) && false);
+    return a.state === filter;
   });
   const open = artefacts.find((a) => a.id === openId) ?? visible[0];
   const pub = open ? publishes.find((p) => p.artefactId === open.id && p.status === "ACTIVE") : undefined;
+  const live = open ? isLive(open, publishes) : false;
 
   return (
     <div>
       <PageHeader
         kicker="Content"
         title="Artefacten met eerlijke states"
-        lede="De UI toont nooit Live zonder PublishRecord. Geblokkeerde golden-negatieven blijven BLOCKED."
+        lede="De UI toont nooit Live zonder PublishRecord. Zet live is een operator-actie: token + getagde links. Zonder partner-IDs weigert de gate."
       />
       <div className="flex flex-wrap gap-2 px-5 pt-5">
         {(["ALL", "LIVE", ...ARTEFACT_STATES] as const).map((s) => (
@@ -79,7 +84,9 @@ function ContentPage() {
               <h2 className="text-lg font-medium tracking-tight">{open.title}</h2>
               <StateBadge artefact={open} publishes={publishes} />
             </div>
-            <p className="mt-1 font-mono text-xs text-muted">{open.slug} · {open.language}</p>
+            <p className="mt-1 font-mono text-xs text-muted">
+              {open.slug} · {open.language}
+            </p>
             {open.verifyFailures.length > 0 ? (
               <ul className="mt-3 space-y-1 rounded-lg bg-danger/10 p-3 text-xs text-danger">
                 {open.verifyFailures.map((f) => (
@@ -96,6 +103,16 @@ function ContentPage() {
               <Button
                 size="sm"
                 onClick={() => {
+                  applyGoLive(open.id);
+                  toast.message(ready ? "Live-gate gedraaid" : "Eerst partner-IDs onder Verdienen");
+                }}
+              >
+                Zet live
+              </Button>
+              <Button
+                size="sm"
+                variant="secondary"
+                onClick={() => {
                   const tok = tokens.find((t) => t.action === "PUBLISH" && t.subjectId === open.id && !t.consumed);
                   applyPublish(open.id, tok?.id);
                   toast.message("Publish-gate gedraaid");
@@ -103,10 +120,17 @@ function ContentPage() {
               >
                 Publiceren (gated)
               </Button>
+              {live ? (
+                <Button size="sm" variant="ghost" asChild>
+                  <Link to="/p/$slug" params={{ slug: open.slug }}>
+                    Open publiek
+                  </Link>
+                </Button>
+              ) : null}
               {pub && !pub.dryRun ? (
                 <Button
                   size="sm"
-                  variant="secondary"
+                  variant="ghost"
                   onClick={() => {
                     applyRollback(pub.id);
                     toast.message("Rollback");
@@ -117,7 +141,7 @@ function ContentPage() {
               ) : null}
             </div>
             <p className="mt-3 text-xs text-subtle">
-              {isLive(open, publishes)
+              {live
                 ? `Live via ${pub?.id}`
                 : "Niet live — geen actieve PublishRecord of state ≠ PUBLISHED."}
             </p>

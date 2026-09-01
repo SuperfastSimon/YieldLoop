@@ -1,0 +1,6 @@
+User-agent: *
+Allow: /
+Allow: /p/
+Allow: /voorwaarden
+Allow: /privacy
+Disallow: /go/

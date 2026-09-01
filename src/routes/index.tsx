@@ -6,6 +6,7 @@ import { PageHeader } from "@/components/layout/AppShell";
 import { LineageTree } from "@/components/yieldloop/lineage";
 import { StateBadge, TierBadge } from "@/components/yieldloop/status";
 import { expectedNetWeek } from "@/lib/yieldloop/engine";
+import { partnerReady } from "@/lib/yieldloop/links.ts";
 import { useYieldStore } from "@/lib/yieldloop/store";
 import { eur, formatWhen } from "@/lib/utils";
 
@@ -28,12 +29,14 @@ function Command() {
   const publishes = useYieldStore((s) => s.publishes);
   const proposals = useYieldStore((s) => s.proposals);
   const events = useYieldStore((s) => s.events);
+  const partner = useYieldStore((s) => s.partner);
   const applyCycle = useYieldStore((s) => s.applyCycle);
   const applyGolden = useYieldStore((s) => s.applyGolden);
   const applyApprove = useYieldStore((s) => s.applyApprove);
   const applyReject = useYieldStore((s) => s.applyReject);
   const applyReset = useYieldStore((s) => s.applyReset);
   const state = useYieldStore((s) => s);
+  const ready = partnerReady(partner);
 
   const live = artefacts.filter((a) => a.state === "PUBLISHED" && publishes.some((p) => p.artefactId === a.id && p.status === "ACTIVE" && !p.dryRun));
   const pending = proposals.filter((p) => p.status === "PROPOSED");
@@ -44,7 +47,7 @@ function Command() {
       <PageHeader
         kicker="Commando"
         title="Affiliate-stations die zichzelf klonen"
-        lede="YieldLoop draait de lus ontdekken → kiezen → produceren → toetsen → publiceren (gated) → meten → leren → uitbreiden. Elk station is een cel: dezelfde skills, strakker beleid, T1 bij geboorte."
+        lede="YieldLoop draait de lus ontdekken → kiezen → produceren → toetsen → publiceren (gated) → meten → leren → uitbreiden. Commissies komen van Bol, Awin of TradeTracker — niet van YieldLoop."
         actions={
           <>
             <Button
@@ -74,17 +77,31 @@ function Command() {
       />
 
       <section className="px-5 pt-6">
-        <Link
-          to="/overdracht"
-          className="flex flex-col gap-2 rounded-xl bg-surface p-4 shadow-[var(--shadow-border)] sm:flex-row sm:items-center sm:justify-between"
-        >
-          <div>
-            <p className="text-xs font-medium tracking-wide text-accent">Overdracht</p>
-            <p className="mt-1 text-sm font-medium">Markdown voor een nieuw Grok-gesprek</p>
-            <p className="mt-1 text-xs text-muted">Kopieer of download .md — geen zip, geen dode link.</p>
-          </div>
-          <span className="text-xs text-accent">Open overdracht →</span>
-        </Link>
+        {ready ? (
+          <Link
+            to="/verdienen"
+            className="flex flex-col gap-2 rounded-xl bg-surface p-4 shadow-[var(--shadow-border)] sm:flex-row sm:items-center sm:justify-between"
+          >
+            <div>
+              <p className="text-xs font-medium tracking-wide text-accent">Verdienen</p>
+              <p className="mt-1 text-sm font-medium">Partner-IDs staan. Kopieer een verdien-link van een live artikel.</p>
+              <p className="mt-1 text-xs text-muted">Bezoekers op een ander apparaat hebben die link nodig voor tagging.</p>
+            </div>
+            <span className="text-xs text-accent">Open Verdienen →</span>
+          </Link>
+        ) : (
+          <Link
+            to="/verdienen"
+            className="flex flex-col gap-2 rounded-xl bg-surface p-4 shadow-[var(--shadow-border)] sm:flex-row sm:items-center sm:justify-between"
+          >
+            <div>
+              <p className="text-xs font-medium tracking-wide text-accent">Nog geen commissie</p>
+              <p className="mt-1 text-sm font-medium">Zet Bol, Awin of TradeTracker-IDs om links te taggen</p>
+              <p className="mt-1 text-xs text-muted">YieldLoop betaalt niet. Het netwerk betaalt bij aankoop via jouw ID.</p>
+            </div>
+            <span className="text-xs text-accent">Naar Verdienen →</span>
+          </Link>
+        )}
       </section>
 
       <section className="grid gap-3 px-5 py-6 sm:grid-cols-2 xl:grid-cols-4">

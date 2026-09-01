@@ -4,12 +4,9 @@ Werknaam: YieldLoop. Contracten en mappen blijven leidend.
 
 ## Stack (sandbox-contract)
 
-Grok Build preview eist TanStack Start + React op `0.0.0.0:8080`.
-De Python/FastAPI/CLI-kernel uit de oorspronkelijke brief is daarom
-**getransponeerd** naar een TypeScript-kernel die de dashboard-preview
-daadwerkelijk draait. Domain, gates en golden set zijn identiek.
+Grok Build preview eist TanStack Start + React. De Python/FastAPI/CLI-kernel uit de oorspronkelijke brief is **getransponeerd** naar een TypeScript-kernel die de dashboard-preview daadwerkelijk draait. Domain, gates en golden set zijn identiek.
 
-Auth: UIT. Database: UIT (demo-kernel + localStorage). Geen accounts gevraagd.
+Auth: UIT. Database: UIT (demo-kernel + localStorage). Geen accounts gevraagd. Partner-IDs reizen mee in de verdien-link zodat bezoekers op een ander apparaat nog getagd uitkomen.
 
 ## Extra opdracht
 
@@ -40,6 +37,7 @@ Ieder affiliate-station kan zichzelf klonen (celdeling):
 | 13 | Program adapters | fixtures bol/awin/tradetracker/csv |
 | 14 | REVIEW named claims | `docs/REVIEW.md` |
 | 15 | HANDOVER + SAFETY file:line | `docs/*` |
+| 16 | Income + ship-gate | `links.ts`, `goLive`, `/verdienen`, `/p/$slug`, `/go/$clickId`, TERMS, PRIVACY, UX_NOTES, mvp-ship-gate workflow |
 
 ## Gates
 
@@ -51,3 +49,5 @@ Ieder affiliate-station kan zichzelf klonen (celdeling):
 - F UI nooit Live zonder PublishRecord
 - G BudgetLedger weigert over cap
 - H Named claims in REVIEW.md
+- I goLive zonder partner-IDs weigert
+- J /go buiten allowlist stuurt nergens heen

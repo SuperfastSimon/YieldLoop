@@ -1,17 +1,21 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
-import type { AutonomyTier, CloneRequest, YieldState } from "./contracts.ts";
+import type { AutonomyTier, CloneRequest, PartnerConfig, YieldState } from "./contracts.ts";
+import { EMPTY_PARTNER } from "./links.ts";
 import {
   approveProposal,
   freezeStation,
+  goLive,
   ingestCsv,
   mergePatch,
   publishArtefact,
+  recordClick,
   rejectProposal,
   resetDemo,
   rollbackPublish,
   runCycle,
   runGolden,
+  savePartner,
   seedState,
   setRunState,
   setStationTier,
@@ -34,6 +38,9 @@ type YieldStore = YieldState & {
   applyGolden: () => void;
   applyCsv: (csv: string) => void;
   applyReset: () => void;
+  applyPartner: (patch: Partial<Omit<PartnerConfig, "configuredAt">>) => void;
+  applyGoLive: (artefactId: string) => void;
+  applyClick: (clickId: string) => string | null;
 };
 
 const DATA_KEYS: (keyof YieldState)[] = [
@@ -62,11 +69,13 @@ const DATA_KEYS: (keyof YieldState)[] = [
   "clones",
   "lastCycle",
   "golden",
+  "partner",
 ];
 
 function dataOf(s: YieldStore): YieldState {
   const out = {} as YieldState;
   for (const k of DATA_KEYS) (out as unknown as Record<string, unknown>)[k] = s[k];
+  if (!out.partner) out.partner = { ...EMPTY_PARTNER };
   return out;
 }
 
@@ -98,6 +107,13 @@ export const useYieldStore = create<YieldStore>()(
       applyGolden: () => set(runGolden(dataOf(get()))),
       applyCsv: (csv) => set(ingestCsv(dataOf(get()), csv)),
       applyReset: () => set({ ...resetDemo(), hydrated: true }),
+      applyPartner: (patch) => set(savePartner(dataOf(get()), patch)),
+      applyGoLive: (artefactId) => set(goLive(dataOf(get()), artefactId)),
+      applyClick: (clickId) => {
+        const { state, destination } = recordClick(dataOf(get()), clickId);
+        set(state);
+        return destination;
+      },
     }),
     {
       name: "yieldloop-v1",
@@ -106,6 +122,14 @@ export const useYieldStore = create<YieldStore>()(
         const data: Record<string, unknown> = {};
         for (const k of DATA_KEYS) data[k] = s[k];
         return data as unknown as YieldStore;
+      },
+      merge: (persisted, current) => {
+        const p = (persisted ?? {}) as Partial<YieldState>;
+        return {
+          ...current,
+          ...p,
+          partner: p.partner ?? current.partner ?? { ...EMPTY_PARTNER },
+        };
       },
     },
   ),

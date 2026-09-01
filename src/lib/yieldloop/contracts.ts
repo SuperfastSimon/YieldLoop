@@ -107,6 +107,14 @@ export interface Program {
   active: boolean;
 }
 
+export interface PartnerConfig {
+  bolSiteId: string;
+  awinPublisherId: string;
+  tradeTrackerCampaignId: string;
+  tradeTrackerAffiliateId: string;
+  configuredAt: string | null;
+}
+
 export interface Offer {
   id: string;
   programId: string;
@@ -363,6 +371,7 @@ export interface YieldState {
   clones: CloneRecord[];
   lastCycle: CycleReport | null;
   golden: { id: string; ok: boolean; detail: string }[];
+  partner: PartnerConfig;
 }
 
 export const TIER_RANK: Record<AutonomyTier, number> = {

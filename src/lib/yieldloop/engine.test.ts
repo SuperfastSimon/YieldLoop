@@ -8,15 +8,26 @@ import {
   evaluateClone,
   executeClone,
   freezeStation,
+  goLive,
   issueToken,
   mergePatch,
   publishArtefact,
+  recordClick,
   rollbackPublish,
   runCycle,
   runGolden,
+  savePartner,
   setRunState,
   setStationTier,
 } from "./engine.ts";
+import {
+  destinationForClickId,
+  partnerFromQuery,
+  partnerReady,
+  rewriteBodyForPublic,
+  tagNetworkUrl,
+  verdienQuery,
+} from "./links.ts";
 import type { Artefact, CloneRequest, YieldState } from "./contracts.ts";
 
 function req(over: Partial<CloneRequest> = {}): CloneRequest {
@@ -55,6 +66,14 @@ function art(over: Partial<Artefact> & { body: string }): Artefact {
     ...over,
   };
 }
+
+const SAMPLE_PARTNER = {
+  bolSiteId: "998877",
+  awinPublisherId: "445566",
+  tradeTrackerCampaignId: "12",
+  tradeTrackerAffiliateId: "34",
+  configuredAt: null,
+};
 
 describe("golden verifier", () => {
   const programs = seedState().programs;
@@ -257,5 +276,68 @@ describe("sentinel + learner", () => {
     const s = runGolden(seedState());
     const d = doctor(s);
     assert.equal(d.ok, true, d.checks.filter((c) => !c.ok).map((c) => c.id + ":" + c.detail).join("; "));
+  });
+});
+
+describe("income path", () => {
+  it("tags Bol URLs with site id and keeps click_id", () => {
+    const s = seedState();
+    const tagged = tagNetworkUrl(
+      "https://partner.bol.com/click/monitor-ergo?click_id=clk_1001",
+      s.programs,
+      SAMPLE_PARTNER,
+      "clk_1001",
+    );
+    const u = new URL(tagged);
+    assert.equal(u.searchParams.get("s"), "998877");
+    assert.equal(u.searchParams.get("click_id"), "clk_1001");
+  });
+
+  it("goLive without partner IDs refuses", () => {
+    const after = goLive(seedState(), "art_chair_approved");
+    const art = after.artefacts.find((a) => a.id === "art_chair_approved")!;
+    assert.notEqual(art.state, "PUBLISHED");
+    assert.equal(after.events[0]?.type, "PUBLISH_REFUSED");
+  });
+
+  it("goLive with partner IDs publishes APPROVED artefact to LIVE and tags the body", () => {
+    let s = savePartner(seedState(), SAMPLE_PARTNER);
+    assert.equal(partnerReady(s.partner), true);
+    s = goLive(s, "art_chair_approved");
+    const art = s.artefacts.find((a) => a.id === "art_chair_approved")!;
+    assert.equal(art.state, "PUBLISHED");
+    assert.equal(isLive(art, s.publishes), true);
+    assert.ok(art.body.includes("c=12") || art.body.includes("a=34"));
+  });
+
+  it("recordClick returns tagged destination and appends a click", () => {
+    const s = savePartner(seedState(), SAMPLE_PARTNER);
+    const before = s.clicks.length;
+    const { state, destination } = recordClick(s, "clk_1001");
+    assert.ok(destination);
+    assert.ok(destination!.includes("s=998877"));
+    assert.equal(state.clicks.length, before + 1);
+  });
+
+  it("destination without partner still returns the stored URL", () => {
+    const dest = destinationForClickId(seedState(), "clk_1001");
+    assert.ok(dest);
+    assert.ok(dest!.includes("partner.bol.com"));
+    assert.equal(new URL(dest!).searchParams.get("s"), null);
+  });
+
+  it("rewriteBodyForPublic turns affiliate markdown into first-party /go links", () => {
+    const s = seedState();
+    const live = s.artefacts.find((a) => a.id === "art_monitor_live")!;
+    const rewritten = rewriteBodyForPublic(live.body, s.programs);
+    assert.ok(rewritten.includes("](/go/clk_1001)"));
+    assert.equal(rewritten.includes("partner.bol.com"), false);
+  });
+
+  it("verdienQuery round-trips through partnerFromQuery", () => {
+    const q = verdienQuery(SAMPLE_PARTNER);
+    const parsed = partnerFromQuery(q);
+    assert.equal(parsed.bolSiteId, "998877");
+    assert.equal(parsed.awinPublisherId, "445566");
   });
 });

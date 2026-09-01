@@ -9,15 +9,20 @@ Een **station** is een cel. Stations **klonen zichzelf** onder harde gates.
 Kernel = TypeScript in `src/lib/yieldloop/`. Auth UIT. Database UIT.
 Persist-key: `yieldloop-v1`.
 
+Inkomen: operator vult partner-IDs onder `/verdienen`. `goLive` geeft een PUBLISH-token
+en tagt links. Publiek artikel = `/p/{slug}` alleen mét PublishRecord. Click-out =
+`/go/{clickId}` naar allowlisted merchant. YieldLoop betaalt niet; het netwerk wel.
+
 Lees daarna in deze volgorde:
 
 1. `docs/HANDOVER.md`
 2. `docs/SAFETY.md`
 3. `src/lib/yieldloop/contracts.ts`
-4. `src/lib/yieldloop/engine.ts` (`evaluateClone`, `executeClone`, `runCycle`)
+4. `src/lib/yieldloop/engine.ts` (`evaluateClone`, `executeClone`, `runCycle`, `goLive`)
+5. `src/lib/yieldloop/links.ts`
 
 Behoud het productcontract. Wijzig geen invariant zonder pinning-test in
-`src/lib/yieldloop/engine.test.ts` (21 cases, moeten groen blijven).
+`src/lib/yieldloop/engine.test.ts` (moeten groen blijven).
 
 Vraag de gebruiker wat de volgende stap is als dat niet in hun bericht staat.
 

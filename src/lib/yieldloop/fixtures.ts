@@ -7,6 +7,7 @@ import {
   type Skill,
   type YieldState,
 } from "./contracts.ts";
+import { EMPTY_PARTNER } from "./links.ts";
 
 export const NOW = "2026-08-28T08:00:00.000Z";
 
@@ -298,6 +299,7 @@ Sage Barista Express Impress — €699 (price as of 2026-08-24). Built-in tampe
     runState: "RUN",
     operatorId: "op_yield",
     language: "nl-NL",
+    partner: EMPTY_PARTNER,
     budget: {
       capEur: 2000,
       spentEur: 540,

@@ -11,13 +11,23 @@ import {
   type ExpansionProposal,
   type Language,
   type Offer,
+  type PartnerConfig,
+  type Program,
   type PolicyEnvelope,
   type Station,
   type StrategyMemo,
   type YieldState,
 } from "./contracts.ts";
-import { disclosureFor, verifyArtefact } from "./compliance.ts";
+import { disclosureFor, extractUrls, verifyArtefact } from "./compliance.ts";
 import { GOLDEN_BODIES, PROGRAMS, seedState } from "./fixtures.ts";
+import {
+  EMPTY_PARTNER,
+  clickIdFromUrl,
+  destinationForClickId,
+  partnerReady,
+  retagBody,
+  tagNetworkUrl,
+} from "./links.ts";
 
 export type Gate = { ok: true } | { ok: false; code: string; detail: string };
 
@@ -180,9 +190,10 @@ function clickIdFor(seq: number): string {
   return `clk_${String(seq).padStart(4, "0")}`;
 }
 
-function taggedUrl(url: string, clickId: string): string {
-  const join = url.includes("?") ? "&" : "?";
-  return `${url}${join}click_id=${clickId}`;
+function taggedUrl(url: string, clickId: string, partner?: YieldState["partner"], programs?: Program[]): string {
+  const base = url.includes("click_id=") ? url : `${url}${url.includes("?") ? "&" : "?"}click_id=${clickId}`;
+  if (!partner || !programs) return base;
+  return tagNetworkUrl(base, programs, partner, clickId);
 }
 
 function produceBody(opts: {
@@ -191,6 +202,8 @@ function produceBody(opts: {
   offer: Offer;
   clickId: string;
   contentType: Artefact["contentType"];
+  partner?: YieldState["partner"];
+  programs?: Program[];
 }): string {
   const d = disclosureFor(opts.lang);
   const priceLine =
@@ -199,8 +212,8 @@ function produceBody(opts: {
       : `${opts.offer.title} — €${opts.offer.priceEur.toFixed(0)} (peildatum ${opts.offer.priceAsOf.slice(0, 10)}).`;
   const cta =
     opts.lang === "en-US"
-      ? `[View at ${opts.offer.merchant}](${taggedUrl(opts.offer.url, opts.clickId)})`
-      : `[Bekijk bij ${opts.offer.merchant}](${taggedUrl(opts.offer.url, opts.clickId)})`;
+      ? `[View at ${opts.offer.merchant}](${taggedUrl(opts.offer.url, opts.clickId, opts.partner, opts.programs)})`
+      : `[Bekijk bij ${opts.offer.merchant}](${taggedUrl(opts.offer.url, opts.clickId, opts.partner, opts.programs)})`;
   const intro =
     opts.contentType === "howto"
       ? opts.lang === "en-US"
@@ -485,7 +498,7 @@ export function rejectProposal(state: YieldState, proposalId: string): YieldStat
 export function publishArtefact(
   state: YieldState,
   artefactId: string,
-  opts?: { tokenId?: string; dryRun?: boolean },
+  opts?: { tokenId?: string; dryRun?: boolean; operator?: boolean },
 ): YieldState {
   const art = state.artefacts.find((a) => a.id === artefactId);
   if (!art) return state;
@@ -523,7 +536,7 @@ export function publishArtefact(
   ).length;
 
   const mayAuto = station.tier === "T3_BOUNDED_AUTO" || station.tier === "T4_EXPAND";
-  const mayGated = station.tier === "T2_GATED_ACT" && Boolean(token);
+  const mayGated = Boolean(token) && (station.tier === "T2_GATED_ACT" || Boolean(opts?.operator));
   if (!dry && !mayAuto && !mayGated) {
     return emit(
       {
@@ -584,6 +597,110 @@ export function rollbackPublish(state: YieldState, publishId: string): YieldStat
     ),
   };
   return emit(s, "PUBLISH_ROLLED_BACK", rec.slug, rec.stationId);
+}
+
+/** Persist operator partner IDs and retag every artefact body + publish snapshot. */
+export function savePartner(
+  state: YieldState,
+  patch: Partial<Omit<PartnerConfig, "configuredAt">>,
+): YieldState {
+  const prev = state.partner ?? EMPTY_PARTNER;
+  const partner: PartnerConfig = {
+    bolSiteId: (patch.bolSiteId ?? prev.bolSiteId).trim(),
+    awinPublisherId: (patch.awinPublisherId ?? prev.awinPublisherId).trim(),
+    tradeTrackerCampaignId: (patch.tradeTrackerCampaignId ?? prev.tradeTrackerCampaignId).trim(),
+    tradeTrackerAffiliateId: (patch.tradeTrackerAffiliateId ?? prev.tradeTrackerAffiliateId).trim(),
+    configuredAt: null,
+  };
+  partner.configuredAt = partnerReady(partner) ? stamp(state) : null;
+  const s: YieldState = {
+    ...state,
+    partner,
+    artefacts: state.artefacts.map((a) => ({ ...a, body: retagBody(a.body, state.programs, partner) })),
+    publishes: state.publishes.map((p) => ({
+      ...p,
+      snapshot: retagBody(p.snapshot, state.programs, partner),
+    })),
+  };
+  return emit(
+    s,
+    "PARTNER_SAVED",
+    partnerReady(partner)
+      ? "Partner-IDs gezet — affiliate-links opnieuw getagd"
+      : "Partner-IDs leeg — netwerken betalen geen commissie",
+    null,
+  );
+}
+
+/**
+ * Operator publishes for real: issue PUBLISH token, retag with partner IDs, dryRun=false.
+ * Station autonomy stays as-is — this is a human action, not a silent T3.
+ */
+export function goLive(state: YieldState, artefactId: string): YieldState {
+  const art = state.artefacts.find((a) => a.id === artefactId);
+  if (!art) return state;
+  const partner = state.partner ?? EMPTY_PARTNER;
+  if (!partnerReady(partner)) {
+    return emit(state, "PUBLISH_REFUSED", "Partner-IDs ontbreken — open Verdienen", art.stationId);
+  }
+  if (state.runState === "STOP") {
+    return emit(state, "PUBLISH_REFUSED", "KILL_SWITCH", art.stationId);
+  }
+  let s: YieldState = {
+    ...state,
+    artefacts: state.artefacts.map((a) =>
+      a.id === art.id ? { ...a, body: retagBody(a.body, state.programs, partner) } : a,
+    ),
+  };
+  const already = s.publishes.some((p) => p.artefactId === art.id && p.status === "ACTIVE" && !p.dryRun);
+  if (already) {
+    s = {
+      ...s,
+      publishes: s.publishes.map((p) =>
+        p.artefactId === art.id && p.status === "ACTIVE"
+          ? { ...p, snapshot: retagBody(p.snapshot, s.programs, partner) }
+          : p,
+      ),
+    };
+    return emit(s, "PARTNER_RETAG", art.slug, art.stationId);
+  }
+  const issued = issueToken(s, "PUBLISH", artefactId);
+  return publishArtefact(issued.state, artefactId, {
+    tokenId: issued.token.id,
+    dryRun: false,
+    operator: true,
+  });
+}
+
+export function recordClick(
+  state: YieldState,
+  clickId: string,
+): { state: YieldState; destination: string | null } {
+  const destination = destinationForClickId(state, clickId);
+  if (!destination) {
+    return { state: emit(state, "CLICK_MISS", clickId, null), destination: null };
+  }
+  const art =
+    state.artefacts.find((a) => a.clickId === clickId) ??
+    state.artefacts.find((a) => extractUrls(a.body).some((u) => clickIdFromUrl(u) === clickId));
+  const n = nextId(state, "cl");
+  let s = n.state;
+  const click = {
+    id: n.id,
+    clickId,
+    stationId: art?.stationId ?? "",
+    artefactId: art?.id ?? "",
+    offerId: art?.offerIds[0] ?? "",
+    at: stamp(s),
+  };
+  s = {
+    ...s,
+    clicks: [click, ...s.clicks],
+    stations: s.stations.map((st) =>
+      st.id === click.stationId ? { ...st, clicks: st.clicks + 1 } : st,
+    ),
+  };
+  return { state: emit(s, "CLICK", clickId, click.stationId || null), destination };
 }
 
 export function mergePatch(state: YieldState, patchId: string): YieldState {
@@ -697,6 +814,12 @@ export function doctor(state: YieldState): DoctorReport {
     id: "golden",
     ok: g.every((x) => x.ok),
     detail: g.map((x) => `${x.id}:${x.ok ? "ok" : "fail"}`).join(" · "),
+  });
+  const p = state.partner ?? EMPTY_PARTNER;
+  checks.push({
+    id: "partner",
+    ok: true,
+    detail: partnerReady(p) ? "Partner-IDs gezet" : "Geen partner-IDs — Verdienen",
   });
   return { ok: checks.every((c) => c.ok), checks };
 }
@@ -817,6 +940,8 @@ export function runCycle(state: YieldState, stationId: string): YieldState {
       offer,
       clickId: cid,
       contentType: explorer ? "howto" : "best_x_for_y",
+      partner: s.partner,
+      programs: s.programs,
     });
     let art: Artefact = {
       id: cN.id,
