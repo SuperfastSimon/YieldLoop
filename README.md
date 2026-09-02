@@ -1,4 +1,12 @@
-# YieldLoop
+# YieldLoop — OFFLINE
+
+**This product is offline as of 2026-09-02.**
+
+No live stations. No production affiliate redirects. No Vercel project on Team Skipper. Source remains in this repo for later work; it is not a running service.
+
+See `OFFLINE.md`.
+
+---
 
 Affiliate-besturingssysteem. Stations zijn cellen die zichzelf klonen onder harde gates.
 
@@ -6,7 +14,7 @@ Affiliate-besturingssysteem. Stations zijn cellen die zichzelf klonen onder hard
 
 Repo: [github.com/SuperfastSimon/YieldLoop](https://github.com/SuperfastSimon/YieldLoop)
 
-YieldLoop keert zelf geen geld uit. Commissies komen van Bol, Awin of TradeTracker via getagde links.
+YieldLoop keert zelf geen geld uit. Commissies komen van Bol, Awin of TradeTracker via getagde links — alleen als een operator ooit weer live zet.
 
 ## Voor een nieuw Grok-gesprek
 
@@ -18,13 +26,7 @@ Volledige bron-dump (één markdown): `attachments/YIELDLOOP_OVERDRACHT.md`.
 
 ## Verdienen
 
-1. Vul jouw partner-IDs in onder **Verdienen** (Bol site-id, Awin publisher-id, TradeTracker).
-2. Zet een artefact live (operator-token, geen silent T3).
-3. Deel de **verdien-link** van `/p/{slug}` — die draagt IDs mee zodat bezoekers op een ander apparaat nog getagd uitkomen.
-4. Clicks gaan first-party via `/go/{click_id}` naar een allowlisted merchant.
-5. Plak de conversie-CSV van het netwerk in Ledger.
-
-Zonder IDs is er geen commissie. Live zonder `PublishRecord` bestaat niet.
+Disabled while offline. Partner-IDs, `/p/{slug}` and `/go/{click_id}` are not a live income path.
 
 ## Kernel
 
@@ -38,7 +40,7 @@ Zonder IDs is er geen commissie. Live zonder `PublishRecord` bestaat niet.
 | `src/lib/yieldloop/store.ts` | Zustand persist `yieldloop-v1` |
 | `src/lib/yieldloop/engine.test.ts` | Pinning tests inclusief income path |
 
-Kind van een clone is altijd `T1_DRAFT`. Zonder ApprovalToken = proposal, nooit silent station. Live-badge alleen mét `PublishRecord`.
+Kind van een clone is altijd `T1_DRAFT`. Zonder ApprovalToken = proposal, nooit silent station. Live-badge alleen mét `PublishRecord` — and not while this repo is marked offline.
 
 ## Design
 
